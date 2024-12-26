@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biểu đồ Hà Nội và TP.HCM</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h2 {
+            margin: 20px;
+        }
+
+        canvas {
+            width: 100vw; 
+            height: 80vh;
+        }
+
+        .loading {
+            font-size: 18px;
+            color: #555;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Nhiệt độ và Lượng mưa: Hà Nội vs TP.HCM</h2>
+    <div class="loading">Đang tải dữ liệu...</div>
+    <canvas id="comparisonChart" style="display: none;"></canvas>
+
+    <script>
+        const apiKey = "9a08025f8276a0b9830b1aa805aa17f7"; 
+
+        async function fetchWeatherData(city) {
+            try {
+                const manifest = await fetch(
+                    `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`
+                );
+                if (!manifest.ok) {
+                    throw new Error(`Lỗi HTTP: ${manifest.status} - ${manifest.statusText}`);
+                }
+                const data = await manifest.json();
+                return data;
+            } catch (error) {
+                console.error(`Lỗi khi tải dữ liệu cho thành phố ${city}:`, error);
+                alert(`Không thể tải dữ liệu cho thành phố: ${city}. Vui lòng kiểm tra API Key và kết nối mạng.`);
+                return null;
+            }
+        }
+
+        async function prepareChartData() {
+            const hanoiData = await fetchWeatherData("Hanoi,VN");
+            const hcmData = await fetchWeatherData("Ho Chi Minh City,VN");
+
+            if (!hanoiData || !hcmData) {
+                document.querySelector(".loading").innerText = "Lỗi tải dữ liệu từ API!";
+                return;
+            }
+
+            const labels = hanoiData.list.map(item => 
+                new Date(item.dt * 1000).toLocaleDateString("vi-VN")
+            );
+
+            const hanoiRainfall = hanoiData.list.map(item => 
+                item.rain && item.rain["3h"] ? item.rain["3h"] : 0
+            );
+            const hanoiTemperature = hanoiData.list.map(item => item.main.temp);
+
+            const hcmRainfall = hcmData.list.map(item => 
+                item.rain && item.rain["3h"] ? item.rain["3h"] : 0
+            );
+            const hcmTemperature = hcmData.list.map(item => item.main.temp);
+
+            document.querySelector(".loading").style.display = "none";
+            document.getElementById("comparisonChart").style.display = "block";
+
+            createChart(labels, hanoiRainfall, hanoiTemperature, hcmRainfall, hcmTemperature);
+        }
+
+        function createChart(labels, hanoiRainfall, hanoiTemperature, hcmRainfall, hcmTemperature) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Lượng mưa Hà Nội (mm)',
+                            data: hanoiRainfall,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'line',
+                            label: 'Nhiệt độ Hà Nội (°C)',
+                            data: hanoiTemperature,
+                            borderColor: 'blue',
+                            backgroundColor: 'blue',
+                            fill: false,
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Lượng mưa TP Hồ Chí Minh (mm)',
+                            data: hcmRainfall,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'line',
+                            label: 'Nhiệt độ TP Hồ Chí Minh (°C)',
+                            data: hcmTemperature,
+                            borderColor: 'red',
+                            backgroundColor: 'red',
+                            fill: false,
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, // Duy trì tỷ lệ khung hình
+                    aspectRatio: 1.5, // Tỷ lệ khung hình (chiều rộng / chiều cao)
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Lượng mưa (mm)'
+                            }
+                        },
+                        y1: {
+                            beginAtZero: false,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Nhiệt độ (°C)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        prepareChartData();
+    </script>
+</body>
+</html>
